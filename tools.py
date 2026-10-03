@@ -2,6 +2,8 @@ import arxiv
 from smolagents import tool
 from datetime import datetime, timezone
 import random
+import requests
+from pypdf import PdfReader
 @tool
 def search_arxiv(query: str, max_results: int = 3) -> list:
     """
@@ -70,3 +72,19 @@ def get_current_time() -> str:
     Returns the current date and time in UTC.
     """
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+@tool
+def get_paper_text(arxiv_id: str) -> str:
+    """
+    Downloads an arXiv paper and returns its text so it can be summarized.
+
+    Args:
+        arxiv_id: The arXiv identifier of the paper, e.g. '2303.08774'.
+    """
+    try:
+        resp = requests.get(f"https://arxiv.org/pdf/{arxiv_id}", timeout=30)
+        resp.raise_for_status()
+        reader = PdfReader(io.BytesIO(resp.content))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        return text[:12000]  # truncate to keep the model's context manageable
+    except Exception as e:
+        return f"Could not fetch paper {arxiv_id}: {e}"
